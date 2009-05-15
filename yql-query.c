@@ -10,7 +10,7 @@
 //   yql-query -f json "select * from html where url = 'http://example.com'"
 //
 // BUILD:
-//   g++ yql-query.c -lxml2 -lcurldll -ljson-c
+//   g++ yql-query.c -lxml2 -lcurl -ljson-c
 //
 //   for Windows:
 //
