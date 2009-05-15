@@ -7,7 +7,9 @@
 //   Yasuhiro Matsumoto <mattn.jp@gmail.com>
 //
 // USAGE:
+//   yql-query -f xml "select * from html where url = 'http://example.com'"
 //   yql-query -f json "select * from html where url = 'http://example.com'"
+//   yql-query -f json -u "select * from github.user.info where id='mattn'"
 //
 // BUILD:
 //   g++ yql-query.c -lxml2 -lcurl -ljson-c
@@ -169,17 +171,20 @@ main(int argc, char* argv[]) {
     xmlXPathContextPtr ctx = NULL;
     xmlXPathObjectPtr path = NULL;
     xmlBuffer* xmlbuf = NULL;
-    char* buf = NULL;
     char* format = "xml";
+    int usertables = 0;
     char* url = NULL;
     char* req = NULL;
     int c;
 
     opterr = 0;
-    while ((c = getopt(argc, argv, "f:") != -1)) {
+    while ((c = getopt(argc, argv, "f:u") != -1)) {
         switch (optopt) {
             case 'f':
                 format = optarg;
+                break;
+            case 'u':
+                usertables = 1;
                 break;
             default:
                 argc = 0;
@@ -190,7 +195,7 @@ main(int argc, char* argv[]) {
 
     if ((argc - optind) != 1
             || (strcmp(format, "xml") && strcmp(format, "json"))) {
-        fprintf(stderr, "%s: [-f xml/json] query", argv[0]);
+        fprintf(stderr, "%s: [-f xml/json] [-u] query", argv[0]);
         exit(1);
     }
 
@@ -201,7 +206,7 @@ main(int argc, char* argv[]) {
     }
     req = strdup("http://query.yahooapis.com/v1/public/yql?");
     req = (char*) realloc(req,
-            strlen(req) + strlen(url) + strlen(format) + 11);
+            strlen(req) + strlen(url) + strlen(format) + 10 + 48 + 1);
     if (!req) {
         perror("failed to alloc memory");
         goto leave;
@@ -210,6 +215,8 @@ main(int argc, char* argv[]) {
     strcat(req, url);
     strcat(req, "&format=");
     strcat(req, format);
+    if (usertables)
+        strcat(req, "&env=http%3A%2F%2Fdatatables.org%2Falltables.env");
 
     mf = memfopen();
     if (!mf) {
@@ -230,16 +237,17 @@ main(int argc, char* argv[]) {
         goto leave;
     }
     curl_easy_cleanup(curl);
-    buf = memfstrdup(mf);
-    if (!buf) {
-        perror("failed to alloc memory");
-        goto leave;
-    }
 
     if (!strcmp(format, "json")) {
         json::json_object *obj;
+        char* buf = memfstrdup(mf);
+        if (!buf) {
+            perror("failed to alloc memory");
+            goto leave;
+        }
         json::mc_set_debug(1);
         obj = json::json_tokener_parse(buf);
+        free(buf);
         if (obj && !is_error(obj)) {
             json::json_object *query, *result;
             query = json::json_object_object_get(obj, "query");
@@ -267,34 +275,32 @@ main(int argc, char* argv[]) {
         }
     } else
     if (!strcmp(format, "xml")) {
-        printf("%s\n", buf);
-        doc = xmlParseDoc((xmlChar*)buf);
+        doc = xmlParseMemory(mf->data, mf->size);
         if (!doc) goto leave;
         ctx = xmlXPathNewContext(doc);
         if (!ctx) goto leave;
         path = xmlXPathEvalExpression((xmlChar*)"/query/results", ctx);
-        if (!path || xmlXPathNodeSetGetLength(path->nodesetval) != 1) {
+        if (!path || xmlXPathNodeSetGetLength(path->nodesetval) == 0) {
             path = xmlXPathEvalExpression(
                     (xmlChar*)"/error/description", ctx);
             if (!path) goto leave;
             if (xmlXPathNodeSetGetLength(path->nodesetval) != 1) goto leave;
-
             node = path->nodesetval->nodeTab[0];
             fprintf(stderr, "%s\n", node->children->content);
             goto leave;
         }
-
-        node = path->nodesetval->nodeTab[0];
-        xmlbuf = xmlBufferCreate();
-        xmlNodeDump(xmlbuf, doc, node, 0, 1);
-        printf("%s\n", xmlBufferContent(xmlbuf));
+        if (xmlXPathNodeSetGetLength(path->nodesetval) != 0) {
+            node = path->nodesetval->nodeTab[0];
+            xmlbuf = xmlBufferCreate();
+            xmlNodeDump(xmlbuf, doc, node, 0, 1);
+            printf("%s\n", xmlBufferContent(xmlbuf));
+        }
     }
 
 leave:
     if (url) free(url);
     if (req) free(req);
     if (mf) memfclose(mf);
-    if (buf) free(buf);
     if (xmlbuf) xmlBufferFree(xmlbuf);
     if (ctx) xmlXPathFreeContext(ctx);
     if (path) xmlXPathFreeObject(path);
