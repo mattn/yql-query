@@ -266,29 +266,29 @@ main(int argc, char* argv[]) {
             }
         }
     } else
-        if (!strcmp(format, "xml")) {
-            doc = xmlParseDoc((xmlChar*)buf);
-            if (!doc) goto leave;
-            ctx = xmlXPathNewContext(doc);
-            if (!ctx) goto leave;
-            path = xmlXPathEvalExpression((xmlChar*)"/query/results", ctx);
+    if (!strcmp(format, "xml")) {
+        printf("%s\n", buf);
+        doc = xmlParseDoc((xmlChar*)buf);
+        if (!doc) goto leave;
+        ctx = xmlXPathNewContext(doc);
+        if (!ctx) goto leave;
+        path = xmlXPathEvalExpression((xmlChar*)"/query/results", ctx);
+        if (!path || xmlXPathNodeSetGetLength(path->nodesetval) != 1) {
+            path = xmlXPathEvalExpression(
+                    (xmlChar*)"/error/description", ctx);
             if (!path) goto leave;
-            if (xmlXPathNodeSetGetLength(path->nodesetval) != 1) {
-                path = xmlXPathEvalExpression(
-                        (xmlChar*)"/error/description", ctx);
-                if (!path) goto leave;
-                if (xmlXPathNodeSetGetLength(path->nodesetval) != 1) goto leave;
-
-                node = path->nodesetval->nodeTab[0];
-                fprintf(stderr, "%s\n", node->children->content);
-                goto leave;
-            }
+            if (xmlXPathNodeSetGetLength(path->nodesetval) != 1) goto leave;
 
             node = path->nodesetval->nodeTab[0];
-            xmlbuf = xmlBufferCreate();
-            xmlNodeDump(xmlbuf, doc, node, 0, 1);
-            printf("%s\n", xmlBufferContent(xmlbuf));
+            fprintf(stderr, "%s\n", node->children->content);
+            goto leave;
         }
+
+        node = path->nodesetval->nodeTab[0];
+        xmlbuf = xmlBufferCreate();
+        xmlNodeDump(xmlbuf, doc, node, 0, 1);
+        printf("%s\n", xmlBufferContent(xmlbuf));
+    }
 
 leave:
     if (url) free(url);
