@@ -1,0 +1,5 @@
+all : yql-query.exe
+	@echo done
+
+yql-query.exe : yql-query.c
+	g++ -g -Wall -o yql-query.exe -Ic:/json-c-0.8 yql-query.c -lxml2 -lcurldll c:/json-c-0.8/libjson-c.a
