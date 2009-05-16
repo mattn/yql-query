@@ -31,6 +31,7 @@
 //
 //     g++ -Ic:/json-c-0.8 yql-query.c -lxml2 -lcurldll c:/json-c/libjson-c.a 
 
+#include <memory.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <curl/curl.h>
@@ -83,7 +84,7 @@ memfstrdup(MEMFILE* mf) {
     return buf;
 }
 
-char* url_encode_alloc(const char* str, int force_encode) {
+char* url_encode_alloc(const char* str, bool force_encode) {
     const char* hex = "0123456789abcdef";
 
     char* buf = NULL;
@@ -117,7 +118,7 @@ int optind = 1;
 int optopt;
 char *optarg;
 
-int getopt(int argc, char** argv, char* opts) {
+int getopt(int argc, char** argv, const char* opts) {
     static int sp = 1;
     register int c;
     register char *cp;
@@ -171,7 +172,7 @@ main(int argc, char* argv[]) {
     xmlXPathContextPtr ctx = NULL;
     xmlXPathObjectPtr path = NULL;
     xmlBuffer* xmlbuf = NULL;
-    char* format = "xml";
+    const char* format = "xml";
     int usertables = 0;
     char* url = NULL;
     char* req = NULL;
@@ -199,7 +200,7 @@ main(int argc, char* argv[]) {
         exit(1);
     }
 
-    url = url_encode_alloc(argv[optind], TRUE);
+    url = url_encode_alloc(argv[optind], true);
     if (!url) {
         perror("failed to alloc memory");
         goto leave;
@@ -233,7 +234,7 @@ main(int argc, char* argv[]) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, mf);
     res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
-        fprintf(stderr, error);
+        fputs(error, stderr);
         goto leave;
     }
     curl_easy_cleanup(curl);
