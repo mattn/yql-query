@@ -197,7 +197,7 @@ main(int argc, char* argv[]) {
 
     if ((argc - optind) != 1
             || (strcmp(format, "xml") && strcmp(format, "json"))) {
-        fprintf(stderr, "%s: [-f xml/json] [-u] query", argv[0]);
+        fprintf(stderr, "%s: [-f xml/json] [-u] query\n", argv[0]);
         exit(1);
     }
 
@@ -248,7 +248,7 @@ main(int argc, char* argv[]) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, mf);
     res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
-        fputs(error, stderr);
+        fprintf(stderr, "%s\n", error);
         goto leave;
     }
     curl_easy_cleanup(curl);
