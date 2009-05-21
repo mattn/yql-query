@@ -9,7 +9,7 @@
 // USAGE:
 //   yql-query -f xml "select * from html where url = 'http://example.com'"
 //   yql-query -f json "select * from html where url = 'http://example.com'"
-//   yql-query -f json -u "select * from github.user.info where id='mattn'"
+//   yql-query -f json -u http://datatables.org/alltables.env "select * from github.user.info where id='mattn'"
 //
 // BUILD:
 //   g++ yql-query.c -lxml2 -lcurl -ljson-c
@@ -173,19 +173,20 @@ main(int argc, char* argv[]) {
     xmlXPathObjectPtr path = NULL;
     xmlBuffer* xmlbuf = NULL;
     const char* format = "xml";
-    int usertables = 0;
+    char* userenv = NULL;
     char* url = NULL;
+    int len = 0;
     char* req = NULL;
     int c;
 
     opterr = 0;
-    while ((c = getopt(argc, argv, "f:u") != -1)) {
+    while ((c = getopt(argc, argv, "f:u:") != -1)) {
         switch (optopt) {
             case 'f':
                 format = optarg;
                 break;
             case 'u':
-                usertables = 1;
+                userenv = optarg;
                 break;
             default:
                 argc = 0;
@@ -205,9 +206,20 @@ main(int argc, char* argv[]) {
         perror("failed to alloc memory");
         goto leave;
     }
+    if (userenv) {
+        userenv = url_encode_alloc(userenv, true);
+        if (!userenv) {
+            perror("failed to alloc memory");
+            goto leave;
+        }
+    }
+
     req = strdup("http://query.yahooapis.com/v1/public/yql?");
-    req = (char*) realloc(req,
-            strlen(req) + strlen(url) + strlen(format) + 10 + 48 + 1);
+    len = strlen(req) + 2 + strlen(url) + 8 + strlen(format) + 1;
+    if (userenv) {
+        len += 5 + strlen(userenv);
+    }
+    req = (char*) realloc(req, len);
     if (!req) {
         perror("failed to alloc memory");
         goto leave;
@@ -216,8 +228,10 @@ main(int argc, char* argv[]) {
     strcat(req, url);
     strcat(req, "&format=");
     strcat(req, format);
-    if (usertables)
-        strcat(req, "&env=http%3A%2F%2Fdatatables.org%2Falltables.env");
+    if (userenv) {
+        strcat(req, "&env=");
+        strcat(req, userenv);
+    }
 
     mf = memfopen();
     if (!mf) {
@@ -301,6 +315,7 @@ main(int argc, char* argv[]) {
 leave:
     if (url) free(url);
     if (req) free(req);
+    if (userenv) free(userenv);
     if (mf) memfclose(mf);
     if (xmlbuf) xmlBufferFree(xmlbuf);
     if (ctx) xmlXPathFreeContext(ctx);
