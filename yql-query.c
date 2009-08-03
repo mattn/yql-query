@@ -12,32 +12,14 @@
 //   yql-query -f json -u http://datatables.org/alltables.env "select * from github.user.info where id='mattn'"
 //
 // BUILD:
-//   g++ yql-query.c -lxml2 -lcurl -ljson-c
+//   g++ yql-query.c -lxml2 -lcurl
 //
-//   for Windows:
-//
-//     cd c:\json-c-0.8
-//
-//     gcc -I. -c
-//       arraylist.c 
-//       debug.c
-//       json_object.c
-//       json_tokener.c
-//       json_util.c
-//       linkhash.c
-//       printbuf.c
-//
-//     ar -r libjson-c.a *.o
-//
-//     g++ -Ic:/json-c-0.8 yql-query.c -lxml2 -lcurldll c:/json-c/libjson-c.a 
 
 #include <memory.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
 #include <curl/curl.h>
-namespace json {
-#include "json.h"
-}
+#include "picojson.h"
 
 typedef struct {
     char* data;  /* response data from server. */
@@ -197,7 +179,7 @@ main(int argc, char* argv[]) {
 
     if ((argc - optind) != 1
             || (strcmp(format, "xml") && strcmp(format, "json"))) {
-        fprintf(stderr, "%s: [-f xml/json] [-u] query\n", argv[0]);
+        std::cerr << argv[0] << ": [-f xml/json] [-u] query" << std::endl;
         exit(1);
     }
 
@@ -248,44 +230,25 @@ main(int argc, char* argv[]) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, mf);
     res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
-        fprintf(stderr, "%s\n", error);
+        std::cerr << error << std::endl;
         goto leave;
     }
     curl_easy_cleanup(curl);
 
     if (!strcmp(format, "json")) {
-        json::json_object *obj;
-        char* buf = memfstrdup(mf);
-        if (!buf) {
-            perror("failed to alloc memory");
-            goto leave;
-        }
-        json::mc_set_debug(1);
-        obj = json::json_tokener_parse(buf);
-        free(buf);
-        if (obj && !is_error(obj)) {
-            json::json_object *query, *result;
-            query = json::json_object_object_get(obj, "query");
-            if (query && !is_error(query)) {
-                result = json::json_object_object_get(query, "results");
-                if (result && !is_error(result)) {
-                    printf("%s\n", json::json_object_to_json_string(result));
-                    json_object_put(result);
-                }
-                json_object_put(query);
-            } else {
-                json::json_object *error, *description;
-                error = json::json_object_object_get(obj, "error");
-                if (error && !is_error(error)) {
-                    description = json::json_object_object_get(
-                            error, "description");
-                    if (description && !is_error(description)) {
-                        fprintf(stderr, "%s\n",
-                                json::json_object_get_string(description));
-                        json_object_put(description);
-                    }
-                    json_object_put(error);
-                }
+        picojson::value v;
+        std::string err;
+        picojson::parse(v, mf->data, mf->data + mf->size, &err);
+        if (err.empty() && v.is<picojson::object>()) {
+            picojson::value vv = v.get<picojson::object>()["query"];
+            if (vv.is<picojson::object>())
+                std::cerr << vv.get<picojson::object>()["results"].serialize() << std::endl;
+            else {
+                vv = v.get<picojson::object>()["error"];
+                if (vv.is<picojson::object>())
+                    std::cout << vv.get<picojson::object>()["description"].to_str().c_str() << std::endl;
+                else
+                    std::cerr << "unknown error" << std::endl;
             }
         }
     } else
@@ -301,14 +264,14 @@ main(int argc, char* argv[]) {
             if (!path) goto leave;
             if (xmlXPathNodeSetGetLength(path->nodesetval) != 1) goto leave;
             node = path->nodesetval->nodeTab[0];
-            fprintf(stderr, "%s\n", node->children->content);
+            std::cerr << node->children->content << std::endl;
             goto leave;
         }
         if (xmlXPathNodeSetGetLength(path->nodesetval) != 0) {
             node = path->nodesetval->nodeTab[0];
             xmlbuf = xmlBufferCreate();
             xmlNodeDump(xmlbuf, doc, node, 0, 1);
-            printf("%s\n", xmlBufferContent(xmlbuf));
+            std::cout << xmlBufferContent(xmlbuf) << std::endl;
         }
     }
 
