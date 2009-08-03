@@ -257,7 +257,7 @@ main(int argc, char* argv[]) {
         if (!doc) goto leave;
         ctx = xmlXPathNewContext(doc);
         if (!ctx) goto leave;
-        path = xmlXPathEvalExpression((xmlChar*)"/query/results", ctx);
+        path = xmlXPathEvalExpression((xmlChar*)"/query/results/*", ctx);
         if (!path || xmlXPathNodeSetGetLength(path->nodesetval) == 0) {
             path = xmlXPathEvalExpression(
                     (xmlChar*)"/error/description", ctx);
