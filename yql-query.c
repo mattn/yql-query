@@ -179,7 +179,7 @@ main(int argc, char* argv[]) {
 
     if ((argc - optind) != 1
             || (strcmp(format, "xml") && strcmp(format, "json"))) {
-        std::cerr << argv[0] << ": [-f xml/json] [-u] query" << std::endl;
+        std::cerr << argv[0] << ": [-f xml/json] [-u uesr-env-url] query" << std::endl;
         exit(1);
     }
 
